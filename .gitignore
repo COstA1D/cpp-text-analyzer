@@ -1,0 +1,76 @@
+# Исполняемые файлы программы
+*.exe
+program.exe
+tests.exe
+src.exe
+
+# JSON файлы, генерируемые программой (test data)
+text_*.json
+
+# Папки сборки Visual Studio
+Debug/
+Release/
+x64/
+x86/
+build/
+
+# Файлы проекта Visual Studio
+*.vcxproj.user
+*.sln.iml
+*.suo
+*.user
+*.filters
+
+# Объектные файлы и файлы линковки
+*.obj
+*.o
+*.lib
+*.pdb
+*.ilk
+*.idb
+*.tlog
+
+# Временные файлы компиляции
+*.tmp
+*.log
+*.lastbuildstate
+*.iobj
+
+# IntelliSense и индексация VS
+*.ipch
+*.opensdf
+*.sdf
+*.ncb
+
+# Системные файлы Windows
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+
+# IDE временные файлы
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Документация (если генерируется автоматически)
+docs/*.md.bak
+docs/*.tmp
+
+# Backup файлы редакторов
+*~
+*.bak
+*.orig
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Локальные тестовые данные (не коммитить)
+test_data/
+samples/
+output/
