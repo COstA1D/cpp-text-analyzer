@@ -43,11 +43,11 @@ Implementation Plan — cpp-text-analyzer
 
 Проектирование структуры программы
 ```text
-📁 WordFrequencyAnalyzer/
-├── 📄 src/main.cpp          # Главная логика + меню
-├── 📄 data/                 # Тестовые JSON файлы
-├── 📄 docs/                 # Документация
-└── 📄 README.md            # Инструкция
+WordFrequencyAnalyzer/
+├── src/main.cpp          # Главная логика + меню
+├── data/                 # Тестовые JSON файлы
+├── docs/                 # Документация
+└── README.md            # Инструкция
 ```
 Реализация генерации и проверки файлов
 generateJsonFiles() — создание text_N.json с 4 типами текстов
