@@ -1,181 +1,179 @@
 #include <iostream>
-#include <fstream>// Работа с файлами (ifstream, ofstream)
+#include <fstream>// Для чтения файлов .json
 #include <string>
 #include <vector>
-#include <map>// Словарь частот map<string, int>
-#include <set> // Множество стоп-слов set<string>
-#include <random>// Генератор случайных чисел mt19937
-#include <algorithm>// sort(), min()
-#include <chrono>// Замеры времени high_resolution_clock
-#include <windows.h> // UTF-8 консоль Windows (SetConsoleCP)
-
-#include "json.hpp"// Библиотека парсинга/генерации JSON
+#include <map>// Для подсчета частоты слов (слово -> количество)
+#include <set>// Для быстрого поиска стоп-слов
+#include <sstream>// Для разбиения текста на слова
+#include <random>// Для случайного выбора текста при генерации файлов
+#include <algorithm>// Для сортировки слов по популярности
+#include <chrono>// Для замера времени 
+#include <windows.h>  // Для консоли UTF-8 русской кодировки в Windows
+#include "json.hpp"// Библиотека для чтения/записи JSON файлов
 
 using namespace std;
-using json = nlohmann::json;// Псевдоним для удобства
+using json = nlohmann::json;// Короткое имя для JSON
 
-// Читает JSON-файл в объект data
-bool readJsonFile(const string& filename, json& data) {
-    ifstream file(filename, ios::binary);// Открываем файл в бинарном режиме (для UTF-8)
-    file.seekg(0, ios::end);               // Переходим в конец файла
-    if (file.tellg() == 0) {               // Проверяем, пустой ли файл
-        cout << "file " << filename << " empty, skipping" << endl;
-        return false;
-    }
-    file.seekg(0, ios::beg);               // Возвращаемся в начало файла
-    file.clear();                          // Сбрасываем флаги ошибок ifstream
-    try {
-        file >> data;                      // Парсим JSON из файла
-    }
-    catch (const json::parse_error& e) {   // Ловим ошибки парсинга JSON
-        cout << "Error parsing JSON file " << filename << ": " << e.what() << endl;
-        return false;
-    }
-    return true;                           // Успешно прочитали
-}
+// ЧИТАЕМ JSON ФАЙЛ (открываем, проверяем, загружаем данные)
+bool readJsonFile(const string& filename, json& data) {// Открываем файл в бинарном режиме (важно для UTF-8)
 
-// Проверяет структуру JSON: {"text": "...", "stopwords": [...]}
-bool validateTextJson(const json& data) {
-    if (!data.is_object() || !data.contains("text") || !data["text"].is_string()) {
-        // Корень должен быть объектом с обязательным строковым полем "text"
-        cout << "Error: Expected JSON in file {\"text\": \"line\", \"stopwords\": [\"...\"]}" << endl;
+    ifstream file(filename, ios::binary);
+    if (!file.is_open()) {
+        cout << u8"Не удалось открыть файл " << filename << endl;
         return false;
     }
-    if (data.contains("stopwords")) {          // Опциональное поле stopwords
-        for (const auto& v : data["stopwords"]) // Проверяем все элементы массива
-            if (!v.is_string()) return false;  // Должны быть строки
+    file.seekg(0, ios::end);// Проверяем размер файла (пустой файл = ошибка)
+    if (file.tellg() == 0) {
+        cout << u8"файл " << filename << u8" пуст, пропускаем" << endl;
+        return false;
+    }
+    file.seekg(0, ios::beg);// Возвращаемся в начало файла
+    file.clear();  // Сбрасываем возможные ошибки
+    try {// Пробуем прочитать JSON
+        file >> data;//Сразу загружаем JSON в переменную data
+    }
+    catch (const json::parse_error& e) {
+        cout << u8"Ошибка парсинга JSON файла  " << filename << ": " << e.what() << endl;
+        return false;
     }
     return true;
 }
-
-// Генерирует fileCount JSON-файлов с случайным русским текстом
+// ПРОВЕРЯЕМ, ЧТО JSON ФАЙЛ ПРАВИЛЬНЫЙ (есть "text" и опционально "stopwords")
+bool validateTextJson(const json& data) {
+    if (!data.is_object() || !data.contains("text") || !data["text"].is_string()) {// Должны быть: объект {} + поле "text" + строка
+        cout << u8"Ошибка: Ожидается JSON вида {\"text\": \"line\", \"stopwords\": [\"...\"]}" << endl;
+        return false;
+    }
+    if (data.contains("stopwords")) {// Если есть stopwords - все должны быть строками
+        for (const auto& v : data["stopwords"])
+            if (!v.is_string()) return false;
+    }
+    return true;
+}
+// ГЕНЕРИРУЕМ ТЕСТОВЫЕ JSON ФАЙЛЫ (text_0.json, text_1.json и т.д.)
 void generateJsonFiles(int fileCount) {
-    vector<string> samples = {                 // 4 примера русских текстов
+    vector<string> samples = {// 4 примера русских текстов для тестов
         u8"В начале было Слово и Слово было у Бога.",
         u8"Текст для частотного анализа текста.",
         u8"Солнце светит ярко, птицы поют весело.",
         u8"Зима холодная, снег белый и пушистый."
-    };
-    mt19937 gen(static_cast<unsigned>(time(nullptr)));  // Генератор случайных чисел
-    uniform_int_distribution<> textId(0, samples.size() - 1); // 0-3 равномерно
-
+    };// Случайный выбор текста для каждого файла
+    mt19937 gen(static_cast<unsigned>(time(nullptr)));// Генератор случайных чисел
+    uniform_int_distribution<> textId(0, samples.size() - 1);
     for (int i = 0; i < fileCount; ++i) {
-        json obj;                              // Создаём JSON-объект
-        obj["text"] = samples[textId(gen)];    // Случайный текст
-        obj["stopwords"] = json::array({ u8"и", u8"в", u8"у" }); // Стоп-слова
-        string filename = "text_" + to_string(i) + ".json"; // text_0.json, text_1.json...
-        ofstream out(filename);                // Открываем для записи
+        json obj;// Создаем новый JSON объект
+        obj["text"] = samples[textId(gen)];// Случайный текст
+        obj["stopwords"] = json::array({ u8"и", u8"в", u8"у" });// Стоп-слова
+        string filename = "text_" + to_string(i) + ".json";
+        ofstream out(filename);// Создаем файл
         if (out.is_open()) {
-            out << obj.dump(2, ' ', false, json::error_handler_t::replace); // Сохраняем с отступами
-            cout << "Created " << filename << endl; // Подтверждение создания
+            out << obj.dump(2, ' ', false, json::error_handler_t::replace); // Красиво пишем JSON
+            cout << u8"Создан файл" << filename << endl;
         }
     }
 }
-
-// Разбивает текст на слова, фильтруя стоп-слова
+// РАЗБИРАЕМ ТЕКСТ НА СЛОВА (убираем стоп-слова типа "и", "в", "у")
 void splitWords(const string& text, const vector<string>& stopwords, vector<string>& words_out) {
-    set<string> stop(stopwords.begin(), stopwords.end()); // Быстрый поиск стоп-слов
-    words_out.clear();                                     // Очищаем выходной буфер
-    string cur;                                            // Текущая накопленная лексема
+    words_out.clear();// Очищаем результат
 
-    for (char c : text) {                                  // По символам текста
-        unsigned char uc = static_cast<unsigned char>(c);  // Беззнаковый байт
-        if ((uc >= 0xC0 && uc <= 0xFF) || isalnum(uc)) {  // Кириллица UTF-8 или латинница/цифры
-            cur += tolower(c);                             // Добавляем в нижнем регистре
-        }
-        else if (!cur.empty()) {                           // Конец слова (пробел/знак препинания)
-            if (stop.find(cur) == stop.end()) {            // Не стоп-слово?
-                words_out.push_back(cur);                  // Добавляем в результат
+
+    // stringstream как ножницы - режет текст по пробелам
+    stringstream ss(text);
+    string word;
+
+    while (ss >> word) {// Берем слово за словом
+        // Проверяем, не стоп-слово ли это
+        bool is_stop = false;
+        for (const string& stop : stopwords) {
+            if (word == stop) {// Точное совпадение
+                is_stop = true;
+                break;
             }
-            cur.clear();                                   // Сбрасываем буфер слова
         }
-    }
-    if (!cur.empty() && stop.find(cur) == stop.end()) {    // Последнее слово
-        words_out.push_back(cur);
+        if (!is_stop) {
+            words_out.push_back(word);  //  ОРИГИНАЛЬНОЕ слово, добавляем в результат
+        }
     }
 }
-
-// Анализирует один JSON-файл: частоты слов + бенчмарк времени
-void analyzeText(const json& data, bool timecheck, vector<string>& words_buffer, map<string, int>& freq_buffer) {
-    if (!validateTextJson(data)) return;                   // Проверяем структуру
-
-    string text = data["text"].get<string>();              // Извлекаем текст
+//АНАЛИЗ ОДНОГО ФАЙЛА (подсчет слов + топ-5)
+void analyzeText(const json& data, bool timecheck, vector<string>& words_buffer, map<string, int>& freq_buffer, int fileIndex) {
+    if (!validateTextJson(data)) return;// Проверяем формат
+    // Извлекаем текст и стоп-слова из JSON
+    string text = data["text"].get<string>();
     vector<string> stopwords;
-    if (data.contains("stopwords")) {                      // Извлекаем стоп-слова (опционально)
+    if (data.contains("stopwords")) {
         for (const auto& v : data["stopwords"])
             stopwords.push_back(v.get<string>());
     }
 
-    splitWords(text, stopwords, words_buffer);
-
-    freq_buffer.clear();                                   // Очищаем частоты
-    for (const string& w : words_buffer) {                 // Считаем частоты слов
-        ++freq_buffer[w];
+    splitWords(text, stopwords, words_buffer);  // Разбиваем текст на слова (убираем стоп-слова)
+    freq_buffer.clear();// Считаем частоту каждого слова
+    for (const string& w : words_buffer) {
+        ++freq_buffer[w];// map автоматически считает
     }
 
-    if (!timecheck) {                                      // Подробный вывод (не бенчмарк)
-        cout << "Total words: " << words_buffer.size()
-            << ", unique: " << freq_buffer.size() << endl;
-        cout << "Top-5:" << endl;
+    if (!timecheck) {// Выводим результаты (только если НЕ бенчмарк)
+        cout << u8"\n Файл #" << fileIndex << " (text_" << fileIndex << ".json):" << endl;
+        cout << u8"Всего слов: " << words_buffer.size()
+            << u8", уникальных: " << freq_buffer.size() << endl;
+        cout << u8"Топ-5:" << endl;
 
-        vector<pair<string, int>> top(freq_buffer.begin(), freq_buffer.end()); // Копируем в вектор
-        sort(top.rbegin(), top.rend());                    // Сортируем по убыванию частоты
-
-        for (int i = 0; i < min(5, (int)top.size()); ++i) { // Первые 5 слов
-            cout << "  Word #" << (i + 1) << ": " << top[i].second << " times" << endl;
+        vector<pair<string, int>> top(freq_buffer.begin(), freq_buffer.end());// Копируем в вектор и сортируем по убыванию частоты
+        sort(top.rbegin(), top.rend());
+        for (int i = 0; i < min(5, (int)top.size()); ++i) {
+            cout << u8"  " << (i + 1) << u8") '" << top[i].first << u8"' - " << top[i].second << u8" раз" << endl;
         }
     }
 }
-
+// ГЛАВНОЕ МЕНЮ ПРОГРАММЫ (точка входа)
 int main() {
-#ifdef _WIN32                                          // Только для Windows
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);     // Дескриптор консоли
-    DWORD mode = 0;
-    GetConsoleMode(hOut, &mode);                       // Текущий режим консоли
-    SetConsoleMode(hOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN);
-    // Включаем UTF-8 + цвета + нормальные переносы строк
-    SetConsoleCP(65001);                               // UTF-8 для ввода
-    SetConsoleOutputCP(65001);                         // UTF-8 для вывода
+    // Настройка Windows для UTF-8 (русский текст в консоли)
+#ifdef _WIN32
+        HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD mode = 0;
+        GetConsoleMode(hOut, &mode);
+        SetConsoleMode(hOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN);
+        SetConsoleCP(65001); // UTF - 8 для ввода
+        SetConsoleOutputCP(65001);// UTF-8 для вывода
 #endif
 
-    cout << u8"================ TEXT FREQUENCY ANALYZER ================" << endl;
-    vector<string> words_buffer;                       // Переиспользуемый буфер слов
-    map<string, int> freq_buffer;                      // Переиспользуемый буфер частот
-    string choose;                                     // Ввод пользователя
-
-    while (true) {                                     // Главное меню
-        cout << "\n1) Analyze files\n2) Debugging\n3) Exit\n> ";
+    cout << u8"================ АНАЛИЗАТОР ЧАСТОТЫ СЛОВ ================" << endl;
+    vector<string> words_buffer;// Временное хранилище слов
+    map<string, int> freq_buffer;// Подсчет частоты слов
+    string choose;// Выбор пользователя
+    
+    while (true) {
+        cout << u8"\n1)Анализ файлов\n2) Отладка\n3) Выход\n> ";
         cin >> choose;
-
-        if (choose == "1") {                           // Анализ файлов
-            int amount; cout << "Number of files: "; cin >> amount;
+        if (choose == "1") {
+            int amount; cout << u8"Количество файлов: "; cin >> amount;// Анализ существующих файлов
             for (int i = 0; i < amount; ++i) {
-                json data;                             // JSON для текущего файла
+                json data;// JSON данные текущего файла
                 if (readJsonFile("text_" + to_string(i) + ".json", data))
-                    analyzeText(data, false, words_buffer, freq_buffer);
+                    analyzeText(data, false, words_buffer, freq_buffer,i);
             }
         }
-        else if (choose == "2") {                      // Режим отладки
-            cout << "1) Generation\n2) Benchmark\n> ";
+        else if (choose == "2") {
+            cout << u8"1) Генерация файлов\n2) Бенчмарк\n> ";// Отладочные функции
             cin >> choose;
             if (choose == "1") {
-                int amount; cout << "Quantity: "; cin >> amount;
-                generateJsonFiles(amount);             // Генерация файлов
+                int amount; cout << u8"Количество файлов: "; cin >> amount;
+                generateJsonFiles(amount);// Создаем тестовые файлы
             }
-            else if (choose == "2") {
-                int amount; cout << "Quantity: "; cin >> amount;
-                auto total_start = chrono::high_resolution_clock::now(); // Старт замера
+            else if (choose == "2") {// Замеряем скорость на N файлах
+                int amount; cout << u8"Количество файлов: "; cin >> amount;
+                auto total_start = chrono::high_resolution_clock::now();
                 for (int i = 0; i < amount; ++i) {
                     json data;
                     if (readJsonFile("text_" + to_string(i) + ".json", data))
-                        analyzeText(data, true, words_buffer, freq_buffer); // Только время
+                        analyzeText(data, true, words_buffer, freq_buffer,i);
                 }
                 auto total_dur = chrono::duration_cast<chrono::milliseconds>(
                     chrono::high_resolution_clock::now() - total_start).count();
-                cout << "Total time (" << amount << " files): " << total_dur << " ms" << endl;
+                cout << u8"Общее время (" << amount << u8" файлов): " << total_dur << u8"мс " << endl;
             }
         }
-        else if (choose == "3") {                      // Выход
+        else if (choose == "3") {
             break;
         }
     }
