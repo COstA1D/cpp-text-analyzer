@@ -23,11 +23,11 @@ ________________________________________________________________________________
 Структура проекта:
 
 ```text
-📁 WordFrequencyAnalyzer/
-├── 📄 main.cpp              # Главная логика + консольное меню
-├── 📁 data/                 # Тестовые JSON файлы (text_0.json → text_N.json)
-├── 📁 docs/                 # Документация (Implementation Plan, Report)
-├── 📄 README.md            # Инструкция по запуску
+WordFrequencyAnalyzer/
+├──  main.cpp              # Главная логика + консольное меню
+├──  data/                 # Тестовые JSON файлы (text_0.json → text_N.json)
+├──  docs/                 # Документация (Implementation Plan, Report)
+├──  README.md            # Инструкция по запуску
 └── WordFrequency.exe       # Готовый исполняемый файл
 ```
 Мини-спецификация JSON:
